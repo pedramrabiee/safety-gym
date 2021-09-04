@@ -46,8 +46,8 @@ GROUP_CIRCLE = 6
 ORIGIN_COORDINATES = np.zeros(3)
 
 # Constant defaults for rendering frames for humans (not used for vision)
-DEFAULT_WIDTH = 256
-DEFAULT_HEIGHT = 256
+DEFAULT_WIDTH = 1920
+DEFAULT_HEIGHT = 1080
 
 class ResamplingError(AssertionError):
     ''' Raised when we fail to sample a valid distribution of objects or goals '''
@@ -92,6 +92,10 @@ class Engine(gym.Env, gym.utils.EzPickle):
     by the config dict of the Engine() object.
 
     '''
+    metadata = {
+        'render.modes' : ['human', 'rgb_array'],
+    }
+
 
     # Default configuration (this should not be nested since it gets copied)
     DEFAULT = {
@@ -712,7 +716,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
             for i in range(self.hazards_num):
                 name = f'hazard{i}'
                 geom = {'name': name,
-                        'size': [self.hazards_size, 1e-2],#self.hazards_size / 2],
+                        'size': [self.hazards_size, 0.2],#self.hazards_size / 2],
                         'pos': np.r_[self.layout[name], 2e-2],#self.hazards_size / 2 + 1e-2],
                         'rot': self.random_rot(),
                         'type': 'cylinder',
@@ -1244,7 +1248,10 @@ class Engine(gym.Env, gym.utils.EzPickle):
         # Set action
         action_range = self.model.actuator_ctrlrange
         # action_scale = action_range[:,1] - action_range[:, 0]
-        self.data.ctrl[:] = np.clip(action, action_range[:,0], action_range[:,1]) #np.clip(action * 2 / action_scale, -1, 1)
+        clip = lambda ac, ac_range, ctrllimited: np.clip(ac, ac_range[0], ac_range[1]) if ctrllimited else ac
+        for i, (ac, ac_range, ctrllimited) in enumerate(zip(action, action_range, self.model.actuator_ctrllimited)):
+            action[i] = clip(ac, ac_range, ctrllimited)
+        self.data.ctrl[:] = action
         if self.action_noise:
             self.data.ctrl[:] += self.action_noise * self.rs.randn(self.model.nu)
 
@@ -1427,9 +1434,9 @@ class Engine(gym.Env, gym.utils.EzPickle):
                 self.viewer.cam.fixedcamid = -1
                 self.viewer.cam.type = const.CAMERA_FREE
             else:
-                self.viewer = MjRenderContextOffscreen(self.sim)
+                self.viewer = MjRenderContextOffscreen(self.sim, 0)
                 self.viewer._hide_overlay = True
-                self.viewer.cam.fixedcamid = camera_id #self.model.camera_name2id(mode)
+                self.viewer.cam.fixedcamid = 1 #self.model.camera_name2id(mode)
                 self.viewer.cam.type = const.CAMERA_FIXED
             self.viewer.render_swap_callback = self.render_swap_callback
             # Turn all the geom groups on
