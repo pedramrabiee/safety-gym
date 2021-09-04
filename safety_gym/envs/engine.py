@@ -118,6 +118,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
 
         # Starting position distribution
         'randomize_layout': True,  # If false, set the random seed before layout to constant
+        'fixed_obstacles': False,   # If true, the obstacle layout (hazards, pillars, vases, gremlins) is fixed on reset
         'build_resample': True,  # If true, rejection sample from valid environments
         'continue_goal': True,  # If true, draw a new goal after achievement
         'terminate_resample_failure': True,  # If true, end episode when resampling fails,
@@ -559,13 +560,19 @@ class Engine(gym.Env, gym.utils.EzPickle):
         if not self.randomize_layout:
             self.rs = np.random.RandomState(0)
 
+        layout = None
+        if self.fixed_obstacles and hasattr(self, 'reset_layout'):
+            keys_to_remove = ['robot', 'goal', 'box', 'button']  # these keys are instantiated again in random locations
+            layout = deepcopy(self.reset_layout)
+            for k in keys_to_remove:
+                _ = layout.pop(k, None)
         for _ in range(10000):
-            if self.sample_layout():
+            if self.sample_layout(layout):
                 break
         else:
             raise ResamplingError('Failed to sample layout of objects')
 
-    def sample_layout(self):
+    def sample_layout(self, layout=None):
         ''' Sample a single layout, returning True if successful, else False. '''
 
         def placement_is_valid(xy, layout):
@@ -576,8 +583,10 @@ class Engine(gym.Env, gym.utils.EzPickle):
                     return False
             return True
 
-        layout = {}
+        layout = {} if layout is None else layout
         for name, (placements, keepout) in self.placements.items():
+            if name in layout.keys():
+                continue
             conflicted = True
             for _ in range(100):
                 xy = self.draw_placement(placements, keepout)
