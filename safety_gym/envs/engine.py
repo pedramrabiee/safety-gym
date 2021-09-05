@@ -317,6 +317,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
         self.viewer = None
         self.world = None
         self.clear()
+        self.reset_layout = None
 
         self.seed(self._seed)
         self.done = True
@@ -561,7 +562,7 @@ class Engine(gym.Env, gym.utils.EzPickle):
             self.rs = np.random.RandomState(0)
 
         layout = None
-        if self.fixed_obstacles and hasattr(self, 'reset_layout'):
+        if self.fixed_obstacles and self.reset_layout is not None:
             keys_to_remove = ['robot', 'goal', 'box', 'button']  # these keys are instantiated again in random locations
             layout = deepcopy(self.reset_layout)
             for k in keys_to_remove:
